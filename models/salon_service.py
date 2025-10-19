@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, DECIMAL, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database.db_connection import Base
-
 class SalonService(Base):
     __tablename__ = "salon_services"
 
@@ -19,4 +18,4 @@ class SalonService(Base):
     )
     
     def __repr__(self):
-        return f"<SalonService(salon_id={self.salon_id}, service_id={self.service_id}, price={self.price_tl})>"
+        return f"<SalonService(salon_id={self.salon_id}, price={self.price_tl})>"

@@ -7,7 +7,7 @@ class EmployeeService(Base):
 
     employee_id = Column(Integer, ForeignKey('employees.id'), primary_key=True)
     service_id = Column(Integer, ForeignKey('services.id'), primary_key=True)
-
+    
     employee = relationship("Employee", back_populates="employee_services")
     service = relationship("Service", back_populates="employee_services")
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DATE, TIME, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, DATE, TIME, Boolean, ForeignKey, UniqueConstraint, TIMESTAMP
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database.db_connection import Base
@@ -19,7 +19,7 @@ class Appointment(Base):
     
     is_confirmed = Column(Boolean, default=False)
     is_cancelled = Column(Boolean, default=False)
-    created_at = Column(TIME, default=func.now())
+    created_at = Column(TIMESTAMP, default=func.now())
 
     user = relationship("User", backref="appointments")
     salon = relationship("Salon", back_populates="appointments")

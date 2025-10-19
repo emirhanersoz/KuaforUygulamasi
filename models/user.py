@@ -15,7 +15,6 @@ class User(Base):
     phone_number = Column(String(20))
     
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=False)
-
     created_at = Column(TIMESTAMP, default=func.now())
 
     role = relationship("Role", backref="users")

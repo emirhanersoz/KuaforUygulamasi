@@ -13,7 +13,7 @@ class EmployeeAvailability(Base):
     end_time = Column(TIME, nullable=False)
 
     employee = relationship("Employee", back_populates="availability")
-
+    
     __table_args__ = (
         UniqueConstraint('employee_id', 'day_of_week', name='uq_employee_day'),
         CheckConstraint('day_of_week >= 0 AND day_of_week <= 6', name='cc_day_of_week')

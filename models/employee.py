@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declared_attr
 from database.db_connection import Base
 
 class Employee(Base):
@@ -9,7 +8,7 @@ class Employee(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
-    
+
     salon_id = Column(Integer, ForeignKey('salons.id'))
     
     is_admin = Column(Boolean, default=False)
