@@ -7,7 +7,7 @@ if base_dir not in sys.path:
 import bcrypt
 import config
 from typing import Optional
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, joinedload
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
@@ -89,8 +89,19 @@ def create_user(
         return None
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    user = db.query(User).filter_by(email=email).first()
+    # eagerly load role to avoid lazy-load after session is closed
+    user = db.query(User).options(joinedload(User.role)).filter_by(email=email).first()
     if user and check_password(password, user.password_hash):
+        try:
+            # detach the related role (if present) and the user so they can be used after the session is closed
+            if getattr(user, 'role', None) is not None:
+                try:
+                    db.expunge(user.role)
+                except Exception:
+                    pass
+            db.expunge(user)
+        except Exception:
+            pass
         return user
     return None
 

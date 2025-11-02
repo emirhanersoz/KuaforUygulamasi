@@ -10,40 +10,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from services.user_service import authenticate_user
-
-# replace direct import with safe fallback
 import config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-try:
-    from database.db_connection import get_db
-except ImportError:
-    try:
-        from database.db_connection import SessionLocal
-        def get_db():
-            db = SessionLocal()
-            try:
-                yield db
-            finally:
-                db.close()
-    except Exception:
-        db_url = getattr(config, 'DATABASE_URL', None)
-        if db_url:
-            _engine = create_engine(db_url)
-            _SessionLocal = sessionmaker(bind=_engine)
-            def get_db():
-                db = _SessionLocal()
-                try:
-                    yield db
-                finally:
-                    db.close()
-        else:
-            def get_db():
-                raise ImportError(
-                    "database.db_connection does not export 'get_db' or 'SessionLocal', "
-                    "and config.DATABASE_URL is not set. Provide one so the UI can obtain DB sessions."
-                )
 
 from models.user import User
 
@@ -91,6 +60,7 @@ class LoginWindow(QDialog):
         self.cancel_button.clicked.connect(self.reject)
 
     def handle_login(self):
+        # read inputs
         email = self.email_input.text().strip()
         password = self.password_input.text()
 
@@ -98,20 +68,48 @@ class LoginWindow(QDialog):
             QMessageBox.warning(self, "Uyarı", "Lütfen e-posta ve şifre alanlarını doldurun.")
             return
 
+        session = None
         try:
-            for db in get_db():
-                user = authenticate_user(db, email, password)
-                
-                if user:
-                    self.logged_in_user = user
-                    QMessageBox.information(self, "Başarılı", f"Hoş geldiniz, {user.first_name}! Rolünüz: {user.role.role_name}")
-                    self.accept()
+            # create session (prefer existing SessionLocal if available)
+            try:
+                from database.db_connection import SessionLocal
+                session = SessionLocal()
+            except Exception:
+                db_url = getattr(config, 'DATABASE_URL', None)
+                if not db_url:
+                    QMessageBox.critical(self, "Sistem Hatası", "DB oturumu oluşturulamadı; yapılandırma eksik.")
                     return
-                else:
-                    QMessageBox.critical(self, "Hata", "Giriş bilgileri hatalı. Lütfen kontrol edin.")
-                    return
+                engine = create_engine(db_url)
+                SessionLocalFallback = sessionmaker(bind=engine)
+                session = SessionLocalFallback()
+
+            # authenticate
+            try:
+                user = authenticate_user(session, email, password)
+            except Exception as e:
+                # authentication-level errors should not close the app; show and return
+                QMessageBox.critical(self, "Sistem Hatası", f"Giriş sırasında hata: {e}")
+                return
+
+            if user:
+                self.logged_in_user = user
+                QMessageBox.information(self, "Başarılı", f"Hoş geldiniz, {user.first_name}! Rolünüz: {user.role.role_name}")
+                # accept the dialog (will return control to caller). Do not call any app-level exit here.
+                self.accept()
+                return
+            else:
+                QMessageBox.critical(self, "Hata", "Giriş bilgileri hatalı. Lütfen kontrol edin.")
+                return
         except Exception as e:
-            QMessageBox.critical(self, "Sistem Hatası", f"Veritabanı hatası oluştu: {e}")
+            # Catch-all: never let an exception bubble out and terminate the app
+            QMessageBox.critical(self, "Beklenmeyen Hata", f"Bir hata oluştu: {e}")
+            return
+        finally:
+            if session is not None:
+                try:
+                    session.close()
+                except Exception:
+                    pass
             
 if __name__ == "__main__":
     app = QApplication(sys.argv)
