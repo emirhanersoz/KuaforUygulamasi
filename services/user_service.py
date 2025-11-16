@@ -89,11 +89,9 @@ def create_user(
         return None
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    # eagerly load role to avoid lazy-load after session is closed
     user = db.query(User).options(joinedload(User.role)).filter_by(email=email).first()
     if user and check_password(password, user.password_hash):
         try:
-            # detach the related role (if present) and the user so they can be used after the session is closed
             if getattr(user, 'role', None) is not None:
                 try:
                     db.expunge(user.role)

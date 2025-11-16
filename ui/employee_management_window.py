@@ -15,7 +15,6 @@ class EmployeeManagementWindow(QWidget):
         
         main_layout = QVBoxLayout()
         
-        # 1. Yeni Çalışan Ekleme Formu
         add_employee_group = QGroupBox("Yeni Personel Kaydı")
         form_layout = QFormLayout()
         
@@ -25,12 +24,11 @@ class EmployeeManagementWindow(QWidget):
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         
-        # Bu ComboBox'lar (açılır listeler) ileride veritabanından doldurulacak
         self.salon_combo = QComboBox()
-        self.salon_combo.addItems(["Merkez Şube", "Anadolu Yakası"]) # Örnek veri
+        self.salon_combo.addItems(["Merkez Şube", "Anadolu Yakası"]) #
         
         self.role_combo = QComboBox()
-        self.role_combo.addItems(["Çalışan", "Yönetici"]) # Örnek veri
+        self.role_combo.addItems(["Çalışan", "Yönetici"]) 
         
         form_layout.addRow("Adı:", self.first_name_input)
         form_layout.addRow("Soyadı:", self.last_name_input)
@@ -40,20 +38,17 @@ class EmployeeManagementWindow(QWidget):
         form_layout.addRow("Rolü:", self.role_combo)
         
         self.add_button = QPushButton("Personel Ekle")
-        # self.add_button.clicked.connect(self.add_new_employee) # Servisler bağlandığında
         form_layout.addWidget(self.add_button)
         
         add_employee_group.setLayout(form_layout)
         main_layout.addWidget(add_employee_group)
-        
-        # 2. Mevcut Çalışanları Listeleme Tablosu
+
         main_layout.addWidget(QLabel("Mevcut Personeller:"))
         self.employee_table = QTableWidget()
         self.employee_table.setColumnCount(5)
         self.employee_table.setHorizontalHeaderLabels(["ID", "Ad Soyad", "E-posta", "Salon", "Rol"])
         self.employee_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
-        # Örnek veri
         self.load_employee_data()
         
         main_layout.addWidget(self.employee_table)
@@ -71,7 +66,6 @@ class EmployeeManagementWindow(QWidget):
             for col, item in enumerate(data):
                 self.employee_table.setItem(row, col, QTableWidgetItem(str(item)))
 
-# Eğer bu pencereyi bağımsız çalıştırmak isterseniz
 if __name__ == '__main__':
     from PyQt6.QtWidgets import QApplication
     import sys

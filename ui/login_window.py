@@ -70,7 +70,6 @@ class LoginWindow(QDialog):
 
         session = None
         try:
-            # create session (prefer existing SessionLocal if available)
             try:
                 from database.db_connection import SessionLocal
                 session = SessionLocal()
@@ -82,26 +81,21 @@ class LoginWindow(QDialog):
                 engine = create_engine(db_url)
                 SessionLocalFallback = sessionmaker(bind=engine)
                 session = SessionLocalFallback()
-
-            # authenticate
             try:
                 user = authenticate_user(session, email, password)
             except Exception as e:
-                # authentication-level errors should not close the app; show and return
                 QMessageBox.critical(self, "Sistem Hatası", f"Giriş sırasında hata: {e}")
                 return
 
             if user:
                 self.logged_in_user = user
                 QMessageBox.information(self, "Başarılı", f"Hoş geldiniz, {user.first_name}! Rolünüz: {user.role.role_name}")
-                # accept the dialog (will return control to caller). Do not call any app-level exit here.
                 self.accept()
                 return
             else:
                 QMessageBox.critical(self, "Hata", "Giriş bilgileri hatalı. Lütfen kontrol edin.")
                 return
         except Exception as e:
-            # Catch-all: never let an exception bubble out and terminate the app
             QMessageBox.critical(self, "Beklenmeyen Hata", f"Bir hata oluştu: {e}")
             return
         finally:
