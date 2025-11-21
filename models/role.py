@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String
-from database.db_connection import Base
+from database.base import Base
 
 class Role(Base):
     __tablename__ = "roles"

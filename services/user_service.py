@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 import urllib.parse as up
 
-from models.user import User
+from models import User
 from models.role import Role
 
 try:
