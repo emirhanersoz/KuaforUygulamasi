@@ -6,35 +6,42 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-# Tüm UI sayfalarını import ediyoruz
-from ui.login_window import LoginWindow
-from ui.salon_management_window import SalonManagementWindow
-from ui.employee_management_window import EmployeeManagementWindow
-from ui.appointment_window import AppointmentWindow
-from models.user import User
+try:
+    from ui.login_window import LoginWindow
+    from ui.salon_management_window import SalonManagementWindow
+    from ui.employee_management_window import EmployeeManagementWindow
+    from ui.appointment_window import AppointmentWindow
+except Exception as e:
+    print(f"Import Hatası: {e}")
+
+class SafeUser:
+    def __init__(self, data_dict):
+        self.id = data_dict.get('id')
+        self.first_name = data_dict.get('first_name')
+        self.last_name = data_dict.get('last_name')
+        self.email = data_dict.get('email')
+        self.role = type('Role', (), {'role_name': data_dict.get('role_name')})()
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        
-        self.setWindowTitle("Kuaför/Berber Otomasyonu (Test Modu)")
+        self.setWindowTitle("Kuaför/Berber Otomasyonu")
         self.setGeometry(100, 100, 1100, 750)
         
-        self.current_user: Optional[User] = None 
-        
+        self.current_user = None 
         self.stacked_widget = QStackedWidget() 
         self.setCentralWidget(self.stacked_widget)
-        
         self.status_label = QLabel() 
 
         self.setup_ui()
-        self.add_management_pages()
-        self.update_ui_for_role(None) 
+        
+        try:
+            self.add_management_pages()
+        except Exception as e:
+            print(f"Sayfa yükleme hatası: {e}")
 
-        self.admin_menu.menuAction().setVisible(True)
-        self.employee_menu.menuAction().setVisible(True)
-        self.appointment_menu.menuAction().setVisible(True)
-        self.statusBar().showMessage("TEST MODU AKTİF - Tüm menüler açık.")
+        self.update_ui_for_role(None) 
+        self.statusBar().showMessage("Sistem Hazır.")
 
     def setup_ui(self):
         self.setStatusBar(QStatusBar(self)) 
@@ -44,11 +51,11 @@ class MainWindow(QMainWindow):
         welcome_layout = QVBoxLayout(welcome_page)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet("font-size: 20px; color: #333;")
+        self.status_label.setText("Kuaför Otomasyonuna Hoşgeldiniz\nLütfen Dosya > Giriş Yap menüsünü kullanın.")
         welcome_layout.addWidget(self.status_label)
         self.stacked_widget.addWidget(welcome_page)
 
     def add_management_pages(self):
-        """Tüm yönetim sayfalarını QStackedWidget'a ekler."""
         self.salon_management_page = SalonManagementWindow(self)
         self.stacked_widget.addWidget(self.salon_management_page)
 
@@ -67,22 +74,19 @@ class MainWindow(QMainWindow):
 
     def create_menu_bar(self):
         menu_bar = self.menuBar()
-
         self.file_menu = menu_bar.addMenu("Dosya")
         self.admin_menu = menu_bar.addMenu("Yönetim")
-        self.employee_menu = menu_bar.addMenu("Çalışan İşlemleri")
         self.appointment_menu = menu_bar.addMenu("Randevular")
         
-        self.login_action = self.file_menu.addAction("Giriş Yap (Pasif)")
+        self.login_action = self.file_menu.addAction("Giriş Yap")
         self.logout_action = self.file_menu.addAction("Çıkış Yap")
-        self.exit_action = self.file_menu.addAction("Uygulamadan Çık")
+        self.exit_action = self.file_menu.addAction("Çıkış")
         
         self.manage_salon_action = self.admin_menu.addAction("Salonları Yönet")
         self.manage_employees_action = self.admin_menu.addAction("Personel Yönet")
-        
-        self.view_appointments_action = self.appointment_menu.addAction("Randevu Takvimi / Oluştur")
+        self.view_appointments_action = self.appointment_menu.addAction("Randevu Takvimi")
 
-        # self.login_action.triggered.connect(self.open_login_window)
+        self.login_action.triggered.connect(self.open_login_window)
         self.logout_action.triggered.connect(self.handle_logout)
         self.exit_action.triggered.connect(self.close)
         
@@ -92,57 +96,59 @@ class MainWindow(QMainWindow):
 
         self.update_menu_visibility(False)
 
+    def open_login_window(self):
+        try:
+            login_dialog = LoginWindow(self)
+            if login_dialog.exec():
+                data_dict = login_dialog.user_data_dict
+                
+                if data_dict:
+                    self.current_user = SafeUser(data_dict)
+                    self.update_ui_for_role(self.current_user)
+                else:
+                    print("Giriş yapıldı ama veri boş geldi.")
+        except Exception as e:
+            print(f"Login penceresi açılırken hata: {e}")
+
     def update_menu_visibility(self, is_logged_in: bool):
         self.login_action.setVisible(not is_logged_in)
         self.logout_action.setVisible(is_logged_in)
-        
-        if not is_logged_in:
-            pass 
-        else:
-
-            pass
+        self.admin_menu.menuAction().setVisible(is_logged_in)
+        self.appointment_menu.menuAction().setVisible(is_logged_in)
 
     def handle_logout(self):
         self.current_user = None
-        QMessageBox.information(self, "Bilgi", "Çıkış yapıldı (Test Modu).")
-        self.stacked_widget.setCurrentIndex(self.page_indices["welcome"])
+        self.update_ui_for_role(None)
+        QMessageBox.information(self, "Bilgi", "Çıkış yapıldı.")
 
-    def update_ui_for_role(self, user: Optional[User]):
+    def update_ui_for_role(self, user):
         if user:
-            self.update_menu_visibility(True)
+            try:
+                msg = f"Hoşgeldiniz, {user.first_name} {user.last_name}\nRol: {user.role.role_name}"
+                self.status_label.setText(msg)
+                self.update_menu_visibility(True)
+            except Exception as e:
+                print(f"Rol güncelleme hatası: {e}")
         else:
+            self.status_label.setText("Lütfen giriş yapınız.")
             self.update_menu_visibility(False)
-            self.stacked_widget.setCurrentIndex(self.page_indices["welcome"]) 
+            self.stacked_widget.setCurrentIndex(0)
 
     def show_salon_management(self):
         self.stacked_widget.setCurrentIndex(self.page_indices["salon_management"])
-        self.statusBar().showMessage("Aktif Ekran: Salon Yönetimi")
 
     def show_employee_management(self):
         self.stacked_widget.setCurrentIndex(self.page_indices["employee_management"])
-        self.statusBar().showMessage("Aktif Ekran: Personel Yönetimi")
 
     def show_appointment_window(self):
         self.stacked_widget.setCurrentIndex(self.page_indices["appointments"])
-        self.statusBar().showMessage("Aktif Ekran: Randevu Sistemi")
             
 if __name__ == "__main__":
     try:
-        print("Uygulama başlatılıyor...")
         app = QApplication(sys.argv)
-        
-        print("MainWindow oluşturuluyor...")
         main_window = MainWindow()
-        
-        print("Pencere gösteriliyor...")
         main_window.show()
-        
-        print("Uygulama döngüsüne giriliyor...")
         sys.exit(app.exec())
-        
     except Exception as e:
-        print("\nIs\n!!! UYGULAMA BAŞLATILIRKEN KRİTİK HATA OLUŞTU !!!\nIs")
-        import traceback
-        traceback.print_exc() 
-        print(f"\nHata Mesajı: {e}")
-        input("\nKapanmak için Enter'a basın...")
+        print(f"\n!!! KRİTİK HATA: {e}")
+        input("Kapanmak için Enter'a bas...")

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, DATE, TIME, Boolean, ForeignKey, UniqueConstraint, TIMESTAMP
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database.db_connection import Base
+from database.base import Base
 
 class Appointment(Base):
     __tablename__ = "appointments"

@@ -1,12 +1,12 @@
 import sys
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QTabWidget, QTableWidget, QHeaderView, QTableWidgetItem, QGroupBox, QFormLayout,
     QMessageBox
 )
 from PyQt6.QtCore import Qt
 
-from database.db_connection import get_db
+from database.db_connection import SessionLocal 
 from services.salon_service import create_salon, get_all_salons
 
 class SalonManagementWindow(QWidget):
@@ -57,33 +57,34 @@ class SalonManagementWindow(QWidget):
         self.salon_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.salon_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.salon_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        
-        self.load_salon_data()
-        
+     
         layout.addWidget(self.salon_table)
+
+        self.refresh_btn = QPushButton("Verileri Yükle / Yenile")
+        self.refresh_btn.clicked.connect(self.load_salon_data)
+        layout.addWidget(self.refresh_btn)
 
     def setup_services_tab(self):
         layout = QVBoxLayout(self.services_tab)
-        
         layout.addWidget(QLabel("Hizmetler Yönetimi (Yakında)"), alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(QPushButton("Yeni Hizmet Ekle"), alignment=Qt.AlignmentFlag.AlignCenter)
 
     def load_salon_data(self):
         self.salon_table.setRowCount(0)
 
-        print("SalonManagementWindow: Veritabanına bağlanılıyor... (Eğer burada takılırsa config.py hatalıdır)")
-        
-        db = next(get_db())
+        print("Salon verileri çekiliyor...")
         try:
-            salons = get_all_salons(db)
-            self.salon_table.setRowCount(len(salons))
-            for row, salon in enumerate(salons):
-                status = "Aktif" if salon.is_active else "Pasif"
-                self.salon_table.setItem(row, 0, QTableWidgetItem(str(salon.id)))
-                self.salon_table.setItem(row, 1, QTableWidgetItem(salon.name))
-                self.salon_table.setItem(row, 2, QTableWidgetItem(salon.phone_number or ""))
-                self.salon_table.setItem(row, 3, QTableWidgetItem(status))
+            with SessionLocal() as db:
+                salons = get_all_salons(db)
+                self.salon_table.setRowCount(len(salons))
+                for row, salon in enumerate(salons):
+                    status = "Aktif" if salon.is_active else "Pasif"
+                    self.salon_table.setItem(row, 0, QTableWidgetItem(str(salon.id)))
+                    self.salon_table.setItem(row, 1, QTableWidgetItem(salon.name))
+                    self.salon_table.setItem(row, 2, QTableWidgetItem(salon.phone_number or ""))
+                    self.salon_table.setItem(row, 3, QTableWidgetItem(status))
+            print("Salon verileri başarıyla yüklendi.")
         except Exception as e:
+            print(f"HATA OLUŞTU: {e}")
             QMessageBox.critical(self, "Hata", f"Veriler yüklenirken hata oluştu: {e}")
 
     def add_new_salon(self):
@@ -95,23 +96,16 @@ class SalonManagementWindow(QWidget):
             QMessageBox.warning(self, "Uyarı", "Salon adı boş bırakılamaz.")
             return
 
-        db = next(get_db())
         try:
-            create_salon(db, name, address, phone)
-            QMessageBox.information(self, "Başarılı", "Yeni salon başarıyla eklendi.")
-            
-            self.name_input.clear()
-            self.address_input.clear()
-            self.phone_input.clear()
-            
-            self.load_salon_data()
+            with SessionLocal() as db:
+                create_salon(db, name, address, phone)
+                QMessageBox.information(self, "Başarılı", "Yeni salon başarıyla eklendi.")
+                
+                self.name_input.clear()
+                self.address_input.clear()
+                self.phone_input.clear()
+                
+                self.load_salon_data()
             
         except Exception as e:
             QMessageBox.critical(self, "Hata", f"Salon eklenirken bir hata oluştu: {e}")
-
-if __name__ == '__main__':
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication(sys.argv)
-    window = SalonManagementWindow()
-    window.show()
-    sys.exit(app.exec())

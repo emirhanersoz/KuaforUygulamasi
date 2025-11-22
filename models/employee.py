@@ -1,16 +1,13 @@
 from sqlalchemy import Column, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from database.db_connection import Base
+from database.base import Base
 
 class Employee(Base):
     __tablename__ = "employees"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-
     user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
-
     salon_id = Column(Integer, ForeignKey('salons.id'))
-    
     is_admin = Column(Boolean, default=False)
 
     user = relationship("User", backref="employee", uselist=False)

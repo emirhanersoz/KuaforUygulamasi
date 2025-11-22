@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, TIMESTAMP
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database.db_connection import Base
+from database.base import Base
 
 class Salon(Base):
     __tablename__ = "salons"
