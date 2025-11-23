@@ -2,15 +2,14 @@ import sys
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QHeaderView, QTableWidgetItem, QGroupBox, QFormLayout,
-    QComboBox, QDateEdit, QTimeEdit, QMessageBox
+    QComboBox, QDateEdit, QMessageBox, QListWidget
 )
-from PyQt6.QtCore import QDate, QTime
+from PyQt6.QtCore import QDate, Qt
 from database.db_connection import SessionLocal
 from services.salon_service import get_all_salons
-from services.appointment_service import create_appointment, get_all_appointments
-from services.employee_service import get_employees_by_salon
+from services.appointment_service import create_appointment, get_all_appointments, get_available_slots
+from services.employee_service import get_employees_by_salon, get_services_for_employee
 from models.user import User
-from models.salon_service import SalonService
 
 class AppointmentWindow(QWidget):
     def __init__(self, parent=None):
@@ -19,127 +18,179 @@ class AppointmentWindow(QWidget):
         
         main_layout = QVBoxLayout()
         
-        new_appointment_group = QGroupBox("Yeni Randevu Oluştur")
+        booking_group = QGroupBox("Randevu Oluştur")
         form_layout = QFormLayout()
         
         self.customer_combo = QComboBox()
+        
         self.salon_combo = QComboBox()
         self.salon_combo.currentIndexChanged.connect(self.on_salon_changed)
-        self.service_combo = QComboBox()
+
         self.employee_combo = QComboBox()
+        self.employee_combo.currentIndexChanged.connect(self.on_employee_changed)
         
+        self.service_combo = QComboBox()
+
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
+        self.date_edit.setMinimumDate(QDate.currentDate())
         
-        self.time_edit = QTimeEdit()
-        self.time_edit.setDisplayFormat("HH:mm")
-        self.time_edit.setTime(QTime(9, 0))
+        self.time_slots_list = QListWidget()
+        self.time_slots_list.setFixedHeight(100)
         
+        self.check_slots_btn = QPushButton("Uygun Saatleri Göster")
+        self.check_slots_btn.setStyleSheet("background-color: #FF9800; color: white;")
+        self.check_slots_btn.clicked.connect(self.load_available_slots)
+
         form_layout.addRow("Müşteri:", self.customer_combo)
         form_layout.addRow("Salon:", self.salon_combo)
-        form_layout.addRow("Hizmet:", self.service_combo)
         form_layout.addRow("Personel:", self.employee_combo)
+        form_layout.addRow("Paket/Hizmet:", self.service_combo)
         form_layout.addRow("Tarih:", self.date_edit)
-        form_layout.addRow("Saat:", self.time_edit)
+        form_layout.addRow("", self.check_slots_btn)
+        form_layout.addRow("Müsait Saatler:", self.time_slots_list)
         
-        self.create_btn = QPushButton("Randevu Oluştur")
+        self.create_btn = QPushButton("Randevuyu Onayla")
+        self.create_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; height: 40px;")
         self.create_btn.clicked.connect(self.handle_create_appointment)
         form_layout.addWidget(self.create_btn)
         
-        new_appointment_group.setLayout(form_layout)
+        booking_group.setLayout(form_layout)
         
-        appointment_list_group = QGroupBox("Tüm Randevular")
+        list_group = QGroupBox("Randevu Listesi")
         list_layout = QVBoxLayout()
-
-        self.refresh_btn = QPushButton("Verileri Getir / Yenile")
-        self.refresh_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
-        self.refresh_btn.clicked.connect(self.load_all_data)
+        
+        self.refresh_btn = QPushButton("Listeyi Yenile")
+        self.refresh_btn.clicked.connect(self.load_appointments_table)
         list_layout.addWidget(self.refresh_btn)
         
         self.appointment_table = QTableWidget()
         self.appointment_table.setColumnCount(6)
-        self.appointment_table.setHorizontalHeaderLabels([
-            "ID", "Müşteri", "Personel", "Hizmet", "Tarih", "Saat"
-        ])
+        self.appointment_table.setHorizontalHeaderLabels(["ID", "Müşteri", "Personel", "Hizmet", "Tarih", "Saat"])
         self.appointment_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        
         list_layout.addWidget(self.appointment_table)
-        appointment_list_group.setLayout(list_layout)
+        
+        list_group.setLayout(list_layout)
 
         splitter = QHBoxLayout()
-        splitter.addWidget(new_appointment_group, 1) 
-        splitter.addWidget(appointment_list_group, 2) 
+        splitter.addWidget(booking_group, 1) 
+        splitter.addWidget(list_group, 2) 
         main_layout.addLayout(splitter)
         self.setLayout(main_layout)
         
-    def load_all_data(self):
         self.load_initial_data()
-        self.load_appointments_table()
-        QMessageBox.information(self, "Bilgi", "Randevu verileri yüklendi.")
 
     def load_initial_data(self):
         self.customer_combo.clear()
         self.salon_combo.clear()
-        
         try:
             with SessionLocal() as db:
                 users = db.query(User).all()
                 for u in users:
-                    self.customer_combo.addItem(f"{u.first_name} {u.last_name} ({u.email})", u.id)
+                    self.customer_combo.addItem(f"{u.first_name} {u.last_name}", u.id)
                 
                 salons = get_all_salons(db)
                 for s in salons:
                     self.salon_combo.addItem(s.name, s.id)
         except Exception as e:
-            print(f"Müşteri/Salon listesi yüklenemedi: {e}")
+            print(f"Veri yükleme hatası: {e}")
 
     def on_salon_changed(self):
+        """Salon değişince personelleri getir."""
         salon_id = self.salon_combo.currentData()
-        if not salon_id:
-            return
-            
         self.employee_combo.clear()
         self.service_combo.clear()
+        self.time_slots_list.clear()
         
+        if not salon_id: return
+            
         try:
             with SessionLocal() as db:
                 emps = get_employees_by_salon(db, salon_id)
                 for e in emps:
                     if e.user:
                         self.employee_combo.addItem(f"{e.user.first_name} {e.user.last_name}", e.id)
-                
-                salon_services = db.query(SalonService).filter(SalonService.salon_id == salon_id).all()
-                for ss in salon_services:
-                    if ss.service:
-                         self.service_combo.addItem(f"{ss.service.service_name} ({ss.price_tl} TL)", ss.id)
         except Exception as e:
-            print(f"Salon detayları çekilemedi: {e}")
+            print(f"Personel yükleme hatası: {e}")
+
+    def on_employee_changed(self):
+        """Personel değişince o personelin yeteneklerine göre hizmetleri getir."""
+        employee_id = self.employee_combo.currentData()
+        salon_id = self.salon_combo.currentData()
+        self.service_combo.clear()
+        self.time_slots_list.clear()
+        
+        if not employee_id or not salon_id: return
+        
+        try:
+            with SessionLocal() as db:
+                services = get_services_for_employee(db, employee_id, salon_id)
+                
+                if not services:
+                    self.service_combo.addItem("Bu çalışana atanmış hizmet yok!", None)
+                
+                for ss in services:
+                    if ss.service:
+                        item_text = f"{ss.service.service_name} ({ss.duration_minutes} dk - {ss.price_tl} TL)"
+                        self.service_combo.addItem(item_text, {"id": ss.id, "duration": ss.duration_minutes})
+        except Exception as e:
+            print(f"Hizmet yükleme hatası: {e}")
+
+    def load_available_slots(self):
+        """Seçilen kriterlere göre boş saatleri hesaplar."""
+        self.time_slots_list.clear()
+        
+        employee_id = self.employee_combo.currentData()
+        service_data = self.service_combo.currentData()
+        check_date = self.date_edit.date().toPyDate()
+        
+        if not employee_id or not service_data:
+            QMessageBox.warning(self, "Eksik", "Lütfen personel ve hizmet seçin.")
+            return
+            
+        duration = service_data["duration"]
+        
+        try:
+            with SessionLocal() as db:
+                slots = get_available_slots(db, employee_id, check_date, duration)
+                
+                if not slots:
+                    self.time_slots_list.addItem("Uygun saat bulunamadı (Dolu veya mesai dışı).")
+                else:
+                    for slot in slots:
+                        self.time_slots_list.addItem(slot)
+                        
+        except Exception as e:
+            QMessageBox.critical(self, "Hata", f"Saatler hesaplanırken hata: {e}")
 
     def handle_create_appointment(self):
         user_id = self.customer_combo.currentData()
         salon_id = self.salon_combo.currentData()
-        salon_service_id = self.service_combo.currentData()
         employee_id = self.employee_combo.currentData()
+        service_data = self.service_combo.currentData()
+        check_date = self.date_edit.date().toPyDate()
         
-        q_date = self.date_edit.date().toPyDate()
-        q_time = self.time_edit.time().toPyTime()
-        
-        from datetime import datetime, timedelta
-        dummy_end = (datetime.combine(q_date, q_time) + timedelta(hours=1)).time()
-
-        if not all([user_id, salon_id, salon_service_id, employee_id]):
-            QMessageBox.warning(self, "Eksik", "Lütfen tüm seçimleri yapınız.")
+        selected_items = self.time_slots_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Uyarı", "Lütfen listeden bir saat aralığı seçin.")
             return
+            
+        slot_text = selected_items[0].text()
+        if "bulunamadı" in slot_text:
+            return
+
+        start_time_str = slot_text.split(" - ")[0]
 
         try:
             with SessionLocal() as db:
                 create_appointment(
-                    db, user_id, salon_id, employee_id, salon_service_id, 
-                    q_date, q_time, dummy_end
+                    db, user_id, salon_id, employee_id, service_data["id"], 
+                    check_date, start_time_str
                 )
-                QMessageBox.information(self, "Başarılı", "Randevu oluşturuldu!")
+                QMessageBox.information(self, "Başarılı", "Randevu başarıyla oluşturuldu!")
                 self.load_appointments_table()
+                self.time_slots_list.clear()
         except Exception as e:
              QMessageBox.critical(self, "Hata", f"Randevu oluşturulamadı: {e}")
 
