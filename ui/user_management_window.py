@@ -50,7 +50,7 @@ class UserManagementWindow(QWidget):
                     combo = QComboBox()
                     combo.addItems(["Müşteri", "Çalışan", "Yönetici"])
                     combo.setCurrentText(role_name)
-                    combo.setProperty("user_id", user.id)
+
                     combo.currentTextChanged.connect(lambda text, uid=user.id: self.change_role(uid, text))
                     self.user_table.setCellWidget(row, 4, combo)
 
@@ -77,10 +77,10 @@ class UserManagementWindow(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Hata", str(e))
         else:
-            self.load_users()
+            self.load_users() 
 
     def delete_user_click(self, user_id):
-        reply = QMessageBox.question(self, "Silme Onayı", "Bu kullanıcıyı ve tüm randevularını silmek istediğinize emin misiniz?",
+        reply = QMessageBox.question(self, "Silme Onayı", "Bu kullanıcıyı silmek istediğinize emin misiniz?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:

@@ -11,7 +11,8 @@ class Appointment(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     salon_id = Column(Integer, ForeignKey('salons.id'), nullable=False)
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
-    salon_service_id = Column(Integer, ForeignKey('salon_services.id'), nullable=False)
+    
+    service_id = Column(Integer, ForeignKey('services.id'), nullable=False)
     
     appointment_date = Column(DATE, nullable=False)
     start_time = Column(TIME, nullable=False)
@@ -24,7 +25,8 @@ class Appointment(Base):
     user = relationship("User", backref="appointments")
     salon = relationship("Salon", back_populates="appointments")
     employee = relationship("Employee", back_populates="appointments")
-    salon_service = relationship("SalonService", backref="appointments")
+
+    service = relationship("Service", backref="appointments")
 
     __table_args__ = (
         UniqueConstraint('employee_id', 'appointment_date', 'start_time', name='uq_employee_datetime'),

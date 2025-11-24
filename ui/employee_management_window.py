@@ -24,7 +24,6 @@ class EmployeeManagementWindow(QWidget):
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         
         self.salon_combo = QComboBox()
-        
         self.role_combo = QComboBox()
         self.role_combo.addItems(["Çalışan", "Yönetici"]) 
         
@@ -42,10 +41,7 @@ class EmployeeManagementWindow(QWidget):
         add_employee_group.setLayout(form_layout)
         main_layout.addWidget(add_employee_group)
 
-        main_layout.addWidget(QLabel("Mevcut Personeller:"))
-        
         self.refresh_btn = QPushButton("Listeyi Getir / Yenile")
-        self.refresh_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
         self.refresh_btn.clicked.connect(self.load_all_data)
         main_layout.addWidget(self.refresh_btn)
 
@@ -56,9 +52,8 @@ class EmployeeManagementWindow(QWidget):
         
         main_layout.addWidget(self.employee_table)
         self.setLayout(main_layout)
-        
+
     def load_all_data(self):
-        """Hem combobox'ı hem tabloyu doldurur."""
         self.load_salons_to_combo()
         self.load_employee_data()
 
@@ -70,7 +65,7 @@ class EmployeeManagementWindow(QWidget):
                 for s in salons:
                     self.salon_combo.addItem(s.name, s.id)
         except Exception as e:
-            print(f"Salonlar combo'ya yüklenemedi: {e}")
+            print(f"Salonlar yüklenemedi: {e}")
 
     def load_employee_data(self):
         self.employee_table.setRowCount(0)
@@ -89,25 +84,19 @@ class EmployeeManagementWindow(QWidget):
                     self.employee_table.setItem(row, 2, QTableWidgetItem(email))
                     self.employee_table.setItem(row, 3, QTableWidgetItem(salon_name))
                     self.employee_table.setItem(row, 4, QTableWidgetItem(role))
-            QMessageBox.information(self, "Bilgi", "Veriler başarıyla yüklendi.")
         except Exception as e:
-            QMessageBox.critical(self, "Hata", f"Personel verisi çekilemedi: {e}")
+            print(f"Personel verisi çekilemedi: {e}")
 
     def handle_add_employee(self):
         f_name = self.first_name_input.text()
         l_name = self.last_name_input.text()
         email = self.email_input.text()
         pwd = self.password_input.text()
-        
         salon_id = self.salon_combo.currentData()
         role = self.role_combo.currentText()
 
-        if not f_name or not email or not pwd:
-            QMessageBox.warning(self, "Eksik Bilgi", "Lütfen tüm alanları doldurun.")
-            return
-        
-        if not salon_id:
-             QMessageBox.warning(self, "Uyarı", "Lütfen önce 'Yenile' butonuna basıp salonları yükleyin ve bir salon seçin.")
+        if not f_name or not email or not pwd or not salon_id:
+             QMessageBox.warning(self, "Uyarı", "Lütfen tüm alanları doldurun ve Listeyi Yenile diyerek salonları yükleyin.")
              return
 
         try:
@@ -116,11 +105,7 @@ class EmployeeManagementWindow(QWidget):
                 if new_emp:
                     QMessageBox.information(self, "Başarılı", "Personel eklendi.")
                     self.load_employee_data()
-                    self.first_name_input.clear()
-                    self.last_name_input.clear()
-                    self.email_input.clear()
-                    self.password_input.clear()
                 else:
-                    QMessageBox.critical(self, "Hata", "Personel eklenemedi (E-posta kullanımda olabilir).")
+                    QMessageBox.warning(self, "Hata", "Personel eklenemedi.")
         except Exception as e:
             QMessageBox.critical(self, "Hata", f"Bir sorun oluştu: {e}")

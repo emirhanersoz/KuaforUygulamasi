@@ -6,16 +6,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-try:
-    from ui.login_window import LoginWindow
-    from ui.register_window import RegisterWindow
-    from ui.salon_management_window import SalonManagementWindow
-    from ui.employee_management_window import EmployeeManagementWindow
-    from ui.user_management_window import UserManagementWindow
-    from ui.appointment_window import AppointmentWindow
-    from ui.employee_dashboard import EmployeeDashboard
-except Exception as e:
-    print(f"Import Hatası: {e}")
+from ui.login_window import LoginWindow
+from ui.register_window import RegisterWindow
+from ui.salon_management_window import SalonManagementWindow
+from ui.employee_management_window import EmployeeManagementWindow
+from ui.user_management_window import UserManagementWindow
+from ui.appointment_window import AppointmentWindow
 
 class SafeUser:
     def __init__(self, data_dict):
@@ -36,20 +32,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_widget)
         self.status_label = QLabel() 
 
-        self.setup_ui()
-        
-        try:
-            self.add_management_pages()
-        except Exception as e:
-            print(f"Sayfa yükleme hatası: {e}")
+        self.page_indices = {
+            "welcome": 0,
+            "salon_management": 1,
+            "employee_management": 2,
+            "user_management": 3,
+            "appointments": 4,
+        }
 
+        self.setup_ui()
+        self.add_management_pages()
         self.update_ui_for_role(None) 
         self.statusBar().showMessage("Sistem Hazır.")
 
     def setup_ui(self):
         self.setStatusBar(QStatusBar(self)) 
         self.create_menu_bar()
-        
         welcome_page = QWidget()
         welcome_layout = QVBoxLayout(welcome_page)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -64,20 +62,12 @@ class MainWindow(QMainWindow):
 
         self.employee_management_page = EmployeeManagementWindow(self)
         self.stacked_widget.addWidget(self.employee_management_page)
-
+        
         self.user_management_page = UserManagementWindow(self)
         self.stacked_widget.addWidget(self.user_management_page)
 
         self.appointment_page = AppointmentWindow(self)
         self.stacked_widget.addWidget(self.appointment_page)
-        
-        self.page_indices = {
-            "welcome": 0,
-            "salon_management": 1,
-            "employee_management": 2,
-            "user_management": 3,
-            "appointments": 4,
-        }
 
     def create_menu_bar(self):
         menu_bar = self.menuBar()
@@ -86,15 +76,12 @@ class MainWindow(QMainWindow):
         self.appointment_menu = menu_bar.addMenu("Randevular")
         
         self.login_action = self.file_menu.addAction("Giriş Yap")
-        
         self.register_action = self.file_menu.addAction("Kayıt Ol")
-        
         self.logout_action = self.file_menu.addAction("Çıkış Yap")
         self.exit_action = self.file_menu.addAction("Çıkış")
         
         self.manage_salon_action = self.admin_menu.addAction("Salonları Yönet")
-        self.manage_employees_action = self.admin_menu.addAction("Personel Yönet (Eski)")
-        
+        self.manage_employees_action = self.admin_menu.addAction("Personel Yönet")
         self.manage_users_action = self.admin_menu.addAction("Tüm Kullanıcıları Yönet")
         
         self.view_appointments_action = self.appointment_menu.addAction("Randevu Takvimi")
@@ -108,10 +95,15 @@ class MainWindow(QMainWindow):
         self.manage_employees_action.triggered.connect(self.show_employee_management)
         self.manage_users_action.triggered.connect(self.show_user_management)
         self.view_appointments_action.triggered.connect(self.show_appointment_window)
-
+        
         self.employee_menu = menu_bar.addMenu("Personel Paneli")
         self.open_emp_dashboard = self.employee_menu.addAction("Çalışma Masam")
-        self.open_emp_dashboard.triggered.connect(self.show_employee_dashboard)
+        
+        try:
+            from ui.employee_dashboard import EmployeeDashboard
+            self.open_emp_dashboard.triggered.connect(self.show_employee_dashboard)
+        except ImportError:
+            self.open_emp_dashboard.setEnabled(False)
 
         self.update_menu_visibility(False)
 
@@ -139,14 +131,14 @@ class MainWindow(QMainWindow):
         self.logout_action.setVisible(is_logged_in)
         
         is_admin = False
-        if is_logged_in and self.current_user:
-            if self.current_user.role.role_name == "Yönetici":
-                is_admin = True
-        
         is_employee = False
+        
         if is_logged_in and self.current_user:
             role = self.current_user.role.role_name
-            if role in ["Çalışan", "Yönetici"]:
+            if role == "Yönetici":
+                is_admin = True
+                is_employee = True
+            elif role == "Çalışan":
                 is_employee = True
         
         self.admin_menu.menuAction().setVisible(is_admin)
@@ -172,30 +164,27 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentIndex(0)
 
     def show_salon_management(self):
-        self.stacked_widget.setCurrentIndex(self.page_indices["salon_management"])
+        self.stacked_widget.setCurrentIndex(1)
 
     def show_employee_management(self):
-        self.stacked_widget.setCurrentIndex(self.page_indices["employee_management"])
+        self.stacked_widget.setCurrentIndex(2)
 
     def show_user_management(self):
-        self.stacked_widget.setCurrentIndex(self.page_indices["user_management"])
+        self.stacked_widget.setCurrentIndex(3)
 
     def show_appointment_window(self):
-        self.stacked_widget.setCurrentIndex(self.page_indices["appointments"])
+        self.stacked_widget.setCurrentIndex(4)
 
     def show_employee_dashboard(self):
         try:
+            from ui.employee_dashboard import EmployeeDashboard
             self.emp_dashboard = EmployeeDashboard(self.current_user)
             self.emp_dashboard.show()
         except Exception as e:
-            print(f"Panel hatası: {e}")    
-            
+            print(f"Panel hatası: {e}")
+
 if __name__ == "__main__":
-    try:
-        app = QApplication(sys.argv)
-        main_window = MainWindow()
-        main_window.show()
-        sys.exit(app.exec())
-    except Exception as e:
-        print(f"\n!!! KRİTİK HATA: {e}")
-        input("Kapanmak için Enter'a bas...")
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    main_window.show()
+    sys.exit(app.exec())
