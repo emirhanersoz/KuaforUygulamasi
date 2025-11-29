@@ -43,11 +43,9 @@ def create_user(db: Session, first_name: str, last_name: str, email: str, passwo
     return new_user
 
 def get_all_users(db: Session) -> List[User]:
-    """Tüm kullanıcıları (Rolleri ile birlikte) getirir."""
     return db.query(User).options(joinedload(User.role)).all()
 
 def delete_user(db: Session, user_id: int) -> bool:
-    """ID'si verilen kullanıcıyı siler."""
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         db.delete(user)
@@ -56,7 +54,6 @@ def delete_user(db: Session, user_id: int) -> bool:
     return False
 
 def update_user_role(db: Session, user_id: int, new_role_name: str) -> bool:
-    """Kullanıcının rolünü değiştirir."""
     user = db.query(User).filter(User.id == user_id).first()
     role = db.query(Role).filter_by(role_name=new_role_name).first()
     

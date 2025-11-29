@@ -8,7 +8,6 @@ engine = create_engine(DATABASE_URL, connect_args={'connect_timeout': 5})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
-    """Veritabanı oturumu sağlayan fonksiyon."""
     db = SessionLocal()
     try:
         yield db

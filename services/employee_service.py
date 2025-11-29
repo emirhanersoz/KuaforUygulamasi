@@ -27,26 +27,18 @@ def add_new_employee(db: Session, first_name: str, last_name: str, email: str, p
     return new_employee
 
 def get_all_employees(db: Session) -> List[Employee]:
-    """Tüm çalışanları getirir."""
     return db.query(Employee).options(joinedload(Employee.user), joinedload(Employee.salon)).all()
 
 def get_employees_by_salon(db: Session, salon_id: int) -> List[Employee]:
-    """Bir salondaki çalışanları getirir."""
     return db.query(Employee).filter(Employee.salon_id == salon_id).options(joinedload(Employee.user)).all()
 
 def get_services_for_employee(db: Session, employee_id: int, salon_id: int):
-    """
-    Bir çalışanın verebildiği hizmetleri (Fiyat ve Süreleriyle) getirir.
-    Artık salon_id'ye bakmıyoruz, direkt çalışanın yeteneklerine bakıyoruz.
-    Ancak parametre uyumu için salon_id'yi tutuyoruz (kullanılmayabilir).
-    """
     services = db.query(EmployeeService).options(joinedload(EmployeeService.service))\
         .filter(EmployeeService.employee_id == employee_id)\
         .all()
     return services
 
 def set_employee_availability(db: Session, employee_id: int, day_of_week: int, start: time, end: time):
-    """Çalışanın belirli bir gündeki mesai saatini ayarlar/günceller."""
     availability = db.query(EmployeeAvailability).filter(
         and_(
             EmployeeAvailability.employee_id == employee_id,
@@ -68,14 +60,12 @@ def set_employee_availability(db: Session, employee_id: int, day_of_week: int, s
     db.commit()
 
 def get_employee_appointments(db: Session, employee_id: int):
-    """Çalışana gelen tüm randevuları getirir."""
     return db.query(Appointment).options(
         joinedload(Appointment.user),
         joinedload(Appointment.service) 
     ).filter(Appointment.employee_id == employee_id).order_by(Appointment.appointment_date, Appointment.start_time).all()
 
 def update_appointment_status(db: Session, appointment_id: int, is_confirmed: bool):
-    """Randevuyu onaylar veya reddeder."""
     app = db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if app:
         app.is_confirmed = is_confirmed
@@ -88,7 +78,6 @@ def update_appointment_status(db: Session, appointment_id: int, is_confirmed: bo
     return False
 
 def add_service_to_employee(db: Session, employee_id: int, service_name: str, duration: int, price: float):
-    """Çalışana özel fiyatla yeni bir hizmet tanımlar."""
     service = db.query(Service).filter(Service.service_name == service_name).first()
     if not service:
         service = Service(service_name=service_name, description="Oto-oluşturuldu")

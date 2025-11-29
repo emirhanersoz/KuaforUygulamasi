@@ -13,6 +13,8 @@ from ui.employee_management_window import EmployeeManagementWindow
 from ui.user_management_window import UserManagementWindow
 from ui.appointment_window import AppointmentWindow
 
+from ui.styles import MODERN_THEME
+
 class SafeUser:
     def __init__(self, data_dict):
         self.id = data_dict.get('id')
@@ -185,6 +187,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyleSheet(MODERN_THEME)
     main_window = MainWindow()
     main_window.show()
     sys.exit(app.exec())
