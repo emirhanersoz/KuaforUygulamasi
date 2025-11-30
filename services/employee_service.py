@@ -11,14 +11,13 @@ from models.employee_service import EmployeeService
 from models.service import Service
 from services.user_service import create_user
 
-def add_new_employee(db: Session, first_name: str, last_name: str, email: str, password: str, salon_id: int, role_name: str) -> Optional[Employee]:
-    """Yeni bir çalışan oluşturur (Önce User, sonra Employee tablosuna ekler)."""
-    user = create_user(db, first_name, last_name, email, password, role_name)
+def add_new_employee(db: Session, first_name: str, last_name: str, email: str, password: str, salon_id: int, role_id: int) -> Optional[Employee]:
+    user = create_user(db, first_name, last_name, email, password, role_id)
     
     if not user:
         return None
     
-    is_admin = (role_name == "Yönetici")
+    is_admin = (role_id == 3)
     
     new_employee = Employee(user_id=user.id, salon_id=salon_id, is_admin=is_admin)
     db.add(new_employee)
@@ -31,6 +30,22 @@ def get_all_employees(db: Session) -> List[Employee]:
 
 def get_employees_by_salon(db: Session, salon_id: int) -> List[Employee]:
     return db.query(Employee).filter(Employee.salon_id == salon_id).options(joinedload(Employee.user)).all()
+
+def update_employee(db: Session, emp_id: int, first_name: str, last_name: str, email: str, salon_id: int, role_id: int) -> bool:
+    emp = db.query(Employee).options(joinedload(Employee.user)).filter(Employee.id == emp_id).first()
+    
+    if emp and emp.user:
+        emp.user.first_name = first_name
+        emp.user.last_name = last_name
+        emp.user.email = email
+        emp.user.role_id = role_id
+        
+        emp.salon_id = salon_id
+        emp.is_admin = (role_id == 3)
+        
+        db.commit()
+        return True
+    return False
 
 def get_services_for_employee(db: Session, employee_id: int, salon_id: int):
     services = db.query(EmployeeService).options(joinedload(EmployeeService.service))\
@@ -58,6 +73,11 @@ def set_employee_availability(db: Session, employee_id: int, day_of_week: int, s
         )
         db.add(new_av)
     db.commit()
+
+def get_employee_availability_list(db: Session, employee_id: int):
+    return db.query(EmployeeAvailability).filter(
+        EmployeeAvailability.employee_id == employee_id
+    ).order_by(EmployeeAvailability.day_of_week).all()
 
 def get_employee_appointments(db: Session, employee_id: int):
     return db.query(Appointment).options(

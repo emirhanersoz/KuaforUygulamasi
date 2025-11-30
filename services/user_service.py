@@ -19,14 +19,7 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         print(f"Auth Hatası: {e}")
         return None
 
-def create_user(db: Session, first_name: str, last_name: str, email: str, password: str, role_name: str, phone: str = ""):
-    role = db.query(Role).filter_by(role_name=role_name).first()
-    if not role:
-        role = Role(role_name=role_name)
-        db.add(role)
-        db.commit()
-        db.refresh(role)
-        
+def create_user(db: Session, first_name: str, last_name: str, email: str, password: str, role_id: int, phone: str = ""):
     hashed = hash_password(password)
     
     new_user = User(
@@ -34,7 +27,7 @@ def create_user(db: Session, first_name: str, last_name: str, email: str, passwo
         last_name=last_name, 
         email=email, 
         password_hash=hashed, 
-        role_id=role.id,
+        role_id=role_id,
         phone_number=phone
     )
     db.add(new_user)
@@ -53,12 +46,21 @@ def delete_user(db: Session, user_id: int) -> bool:
         return True
     return False
 
-def update_user_role(db: Session, user_id: int, new_role_name: str) -> bool:
+def update_user_role(db: Session, user_id: int, new_role_id: int) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
-    role = db.query(Role).filter_by(role_name=new_role_name).first()
-    
-    if user and role:
-        user.role_id = role.id
+    if user:
+        user.role_id = new_role_id
+        db.commit()
+        return True
+    return False
+
+def update_user_details(db: Session, user_id: int, first_name: str, last_name: str, email: str, phone: str):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+        user.phone_number = phone
         db.commit()
         return True
     return False

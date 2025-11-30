@@ -15,6 +15,16 @@ def get_all_salons(db: Session) -> List[Salon]:
 def get_salon_by_id(db: Session, salon_id: int) -> Optional[Salon]:
     return db.query(Salon).filter(Salon.id == salon_id).first()
 
+def update_salon(db: Session, salon_id: int, name: str, address: str, phone: str) -> bool:
+    salon = db.query(Salon).filter(Salon.id == salon_id).first()
+    if salon:
+        salon.name = name
+        salon.address = address
+        salon.phone_number = phone
+        db.commit()
+        return True
+    return False
+
 def delete_salon(db: Session, salon_id: int) -> bool:
     salon = get_salon_by_id(db, salon_id)
     if salon:

@@ -8,7 +8,8 @@ from PyQt6.QtCore import Qt, QTime
 from database.db_connection import SessionLocal
 from services.employee_service import (
     set_employee_availability, get_employee_appointments, 
-    update_appointment_status, add_service_to_employee
+    update_appointment_status, add_service_to_employee,
+    get_services_for_employee, get_employee_availability_list
 )
 from models.employee import Employee
 
@@ -18,8 +19,13 @@ class EmployeeDashboard(QWidget):
         self.current_user = current_user
         self.employee_id = None
         self.setWindowTitle(f"Çalışan Paneli - {current_user.first_name} {current_user.last_name}")
-        self.resize(900, 600)
-
+        self.resize(1000, 650)
+        
+        self.days_map = {
+            0: "Pazartesi", 1: "Salı", 2: "Çarşamba", 3: "Perşembe",
+            4: "Cuma", 5: "Cumartesi", 6: "Pazar"
+        }
+        
         self.find_employee_id()
         
         layout = QVBoxLayout()
@@ -78,15 +84,16 @@ class EmployeeDashboard(QWidget):
                 
                 for row, app in enumerate(apps):
                     cust_name = f"{app.user.first_name} {app.user.last_name}"
+                    
                     status = "Bekliyor"
-                    if app.is_confirmed: status = "Onaylı"
-                    if app.is_cancelled: status = "Reddedildi"
+                    if app.is_confirmed: status = "Onaylandı"
+                    if app.is_cancelled: status = "İptal Edildi"
                     
                     self.app_table.setItem(row, 0, QTableWidgetItem(cust_name))
                     self.app_table.setItem(row, 1, QTableWidgetItem(str(app.appointment_date)))
                     self.app_table.setItem(row, 2, QTableWidgetItem(str(app.start_time)))
                     self.app_table.setItem(row, 3, QTableWidgetItem(status))
-
+                    
                     if not app.is_confirmed and not app.is_cancelled:
                         btn_ok = QPushButton("Onayla")
                         btn_ok.setStyleSheet("background-color: #4CAF50; color: white;")
@@ -104,7 +111,8 @@ class EmployeeDashboard(QWidget):
         try:
             with SessionLocal() as db:
                 update_appointment_status(db, app_id, confirmed)
-                QMessageBox.information(self, "Bilgi", "Durum güncellendi.")
+                msg = "Randevu Onaylandı." if confirmed else "Randevu Reddedildi."
+                QMessageBox.information(self, "Bilgi", msg)
                 self.load_appointments()
         except Exception as e:
             QMessageBox.critical(self, "Hata", str(e))
@@ -112,6 +120,7 @@ class EmployeeDashboard(QWidget):
     def setup_availability_tab(self):
         layout = QVBoxLayout(self.availability_tab)
         
+        edit_group = QGroupBox("Saatleri Düzenle / Ekle")
         form_layout = QFormLayout()
         
         self.day_combo = QComboBox()
@@ -126,15 +135,51 @@ class EmployeeDashboard(QWidget):
         self.end_time.setTime(QTime(18, 0))
         
         form_layout.addRow("Gün Seç:", self.day_combo)
-        form_layout.addRow("Başlangıç Saati:", self.start_time)
-        form_layout.addRow("Bitiş Saati:", self.end_time)
+        form_layout.addRow("Başlangıç:", self.start_time)
+        form_layout.addRow("Bitiş:", self.end_time)
         
-        save_btn = QPushButton("Saati Kaydet")
+        save_btn = QPushButton("Kaydet / Güncelle")
         save_btn.clicked.connect(self.save_availability)
+        form_layout.addRow(save_btn)
+      
+        edit_group.setLayout(form_layout)
+        layout.addWidget(edit_group)
+
+        layout.addWidget(QLabel("Mevcut Çalışma Saatlerim:"))
+        self.avail_table = QTableWidget()
+        self.avail_table.setColumnCount(3)
+        self.avail_table.setHorizontalHeaderLabels(["Gün", "Başlangıç", "Bitiş"])
+        self.avail_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.avail_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.avail_table.itemClicked.connect(self.on_avail_row_clicked)
+        layout.addWidget(self.avail_table)
         
-        layout.addLayout(form_layout)
-        layout.addWidget(save_btn)
-        layout.addStretch()
+        self.load_availabilities()
+
+    def load_availabilities(self):
+        self.avail_table.setRowCount(0)
+        try:
+            with SessionLocal() as db:
+                avails = get_employee_availability_list(db, self.employee_id)
+                self.avail_table.setRowCount(len(avails))
+                for row, av in enumerate(avails):
+                    day_name = self.days_map.get(av.day_of_week, "Bilinmiyor")
+                    self.avail_table.setItem(row, 0, QTableWidgetItem(day_name))
+                    self.avail_table.setItem(row, 1, QTableWidgetItem(str(av.start_time)))
+                    self.avail_table.setItem(row, 2, QTableWidgetItem(str(av.end_time)))
+                    self.avail_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, av.day_of_week)
+        except Exception as e:
+            print(f"Saat yükleme hatası: {e}")
+
+    def on_avail_row_clicked(self, item):
+        row = item.row()
+        day_idx = self.avail_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        start_str = self.avail_table.item(row, 1).text()
+        end_str = self.avail_table.item(row, 2).text()
+        
+        self.day_combo.setCurrentIndex(day_idx)
+        self.start_time.setTime(QTime.fromString(start_str, "HH:mm:ss"))
+        self.end_time.setTime(QTime.fromString(end_str, "HH:mm:ss"))
 
     def save_availability(self):
         day_idx = self.day_combo.currentIndex()
@@ -146,7 +191,8 @@ class EmployeeDashboard(QWidget):
         try:
             with SessionLocal() as db:
                 set_employee_availability(db, self.employee_id, day_idx, start, end)
-                QMessageBox.information(self, "Başarılı", f"{self.day_combo.currentText()} günü saatleri güncellendi.")
+                QMessageBox.information(self, "Başarılı", "Saat güncellendi.")
+                self.load_availabilities()
         except Exception as e:
             QMessageBox.critical(self, "Hata", str(e))
 
@@ -171,13 +217,47 @@ class EmployeeDashboard(QWidget):
         form_layout.addRow("Süre:", self.srv_duration)
         form_layout.addRow("Ücret:", self.srv_price)
         
-        add_btn = QPushButton("Hizmeti Ekle / Güncelle")
+        add_btn = QPushButton("Hizmeti Kaydet / Güncelle")
         add_btn.clicked.connect(self.add_service)
         
         layout.addLayout(form_layout)
         layout.addWidget(add_btn)
-        layout.addStretch()
+
+        layout.addWidget(QLabel("Tanımlı Hizmetlerim:"))
+        self.service_table = QTableWidget()
+        self.service_table.setColumnCount(3)
+        self.service_table.setHorizontalHeaderLabels(["Hizmet Adı", "Süre (Dk)", "Fiyat (TL)"])
+        self.service_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.service_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.service_table.itemClicked.connect(self.on_service_row_clicked)
+        layout.addWidget(self.service_table)
         
+        self.load_services()
+
+    def load_services(self):
+        self.service_table.setRowCount(0)
+        try:
+            with SessionLocal() as db:
+                services = get_services_for_employee(db, self.employee_id, 0)
+                self.service_table.setRowCount(len(services))
+                for row, s in enumerate(services):
+                    if s.service:
+                        self.service_table.setItem(row, 0, QTableWidgetItem(s.service.service_name))
+                        self.service_table.setItem(row, 1, QTableWidgetItem(str(s.duration_minutes)))
+                        self.service_table.setItem(row, 2, QTableWidgetItem(str(s.price_tl)))
+        except Exception as e:
+            print(f"Hizmet yükleme hatası: {e}")
+
+    def on_service_row_clicked(self, item):
+        row = item.row()
+        name = self.service_table.item(row, 0).text()
+        duration = int(self.service_table.item(row, 1).text())
+        price = float(self.service_table.item(row, 2).text())
+        
+        self.srv_name_input.setText(name)
+        self.srv_duration.setValue(duration)
+        self.srv_price.setValue(price)
+
     def add_service(self):
         name = self.srv_name_input.text()
         duration = self.srv_duration.value()
@@ -188,6 +268,7 @@ class EmployeeDashboard(QWidget):
         try:
             with SessionLocal() as db:
                 add_service_to_employee(db, self.employee_id, name, duration, price)
-                QMessageBox.information(self, "Başarılı", "Hizmet listenize eklendi.")
+                QMessageBox.information(self, "Başarılı", "Hizmet güncellendi.")
+                self.load_services()
         except Exception as e:
              QMessageBox.critical(self, "Hata", str(e))

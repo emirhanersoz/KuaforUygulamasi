@@ -11,7 +11,7 @@ class LoginWindow(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Kullanıcı Girişi")
         self.setFixedSize(400, 250)
-        
+
         self.user_data_dict = None 
         
         layout = QVBoxLayout()
@@ -26,6 +26,7 @@ class LoginWindow(QDialog):
         
         self.email_input = QLineEdit()
         self.email_input.setPlaceholderText("E-posta")
+
         self.email_input.setText("admin@kuafor.com") 
         form_layout.addWidget(QLabel("E-posta:"))
         form_layout.addWidget(self.email_input)
@@ -55,17 +56,13 @@ class LoginWindow(QDialog):
         print(f"DEBUG: Giriş deneniyor -> {email}")
 
         if password == "bypass":
-            print("DEBUG: Bypass modu aktif!")
+            print("DEBUG: Bypass modu!")
             self.user_data_dict = {
-                'id': 999,
-                'first_name': 'Bypass',
-                'last_name': 'Admin',
-                'email': email,
-                'role_name': 'Yönetici'
+                'id': 1, 'first_name': 'Bypass', 'last_name': 'Admin', 
+                'email': email, 'role_name': 'Yönetici', 'role_id': 3
             }
             self.accept()
             return
-        # -----------------------------------------------
 
         db = None
         try:
@@ -77,16 +74,23 @@ class LoginWindow(QDialog):
             
             if user:
                 print(f"DEBUG: Kullanıcı bulundu: {user.first_name}")
-                r_name = user.role.role_name if user.role else "Kullanıcı"
+                
+                r_name = "Tanımsız"
+                r_id = 0
+                if user.role:
+                    r_name = user.role.role_name
+                    r_id = user.role.id
                 
                 self.user_data_dict = {
                     'id': user.id,
                     'first_name': user.first_name,
                     'last_name': user.last_name,
                     'email': user.email,
-                    'role_name': r_name
+                    'role_name': r_name,
+                    'role_id': r_id
                 }
-                QMessageBox.information(self, "Başarılı", "Giriş yapıldı.")
+                
+                QMessageBox.information(self, "Başarılı", f"Hoş geldiniz, {user.first_name}!")
                 self.accept()
             else:
                 print("DEBUG: Kullanıcı yok veya şifre yanlış.")
@@ -94,17 +98,8 @@ class LoginWindow(QDialog):
 
         except Exception as e:
             print(f"DEBUG HATASI: {e}")
-            import traceback
-            traceback.print_exc()
             QMessageBox.critical(self, "Kritik Hata", f"Sistem hatası:\n{e}")
         finally:
             if db:
                 print("DEBUG: Oturum kapatılıyor.")
                 db.close()
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    win = LoginWindow()
-    if win.exec():
-        print("Login Başarılı:", win.user_data_dict)
-    sys.exit(app.exec())

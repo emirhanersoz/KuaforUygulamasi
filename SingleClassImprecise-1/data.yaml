@@ -1,0 +1,12 @@
+names:
+- Imprecise
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: singleclassimprecise-ky98f
+  url: https://universe.roboflow.com/emirhan-4ajhk/singleclassimprecise-ky98f/dataset/1
+  version: 1
+  workspace: emirhan-4ajhk
+test: ../test/images
+train: ../train/images
+val: ../valid/images
